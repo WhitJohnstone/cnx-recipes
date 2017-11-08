@@ -62,13 +62,13 @@ _quiet_ok() {
 }
 do_progress_quiet() {
   # Keep it loud when running in Travis or Jenkins
-  if [[ "${TRAVIS}" = "true" ]]; then
+  if [[ "${TRAVIS}" = "true" && "${__NESTED_PROGRESS__}" == "0" ]]; then
     # shellcheck disable=SC2086
-    fold_name="script-progress.${__NESTED_PROGRESS__}"
+    fold_name="script-progress"
     echo "travis_fold:start:${fold_name}"
     do_progress "$@"
     echo "travis_fold:end:${fold_name}"
-  elif [[ "${TRACE}" || "${DEBUG}" || "${VERBOSE}" || "${__NESTED_PROGRESS__}" == "0" ]]; then
+  elif [[ "${TRACE}" || "${DEBUG}" || "${VERBOSE}" || "${__NESTED_PROGRESS__}" != "0" ]]; then
     do_progress "$@"
   else
     _quiet_progress "$1"
