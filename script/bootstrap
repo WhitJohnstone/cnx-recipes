@@ -23,6 +23,8 @@ if [[ $(tput colors) -ge 8 ]]; then
   declare -x c_none=$(tput sgr0) # Keep this last so TRACE=true does not cause everything to be cyan
 fi
 
+__NESTED_PROGRESS__="${__NESTED_PROGRESS__:-0}" # Use 0 as the default
+
 _say() { echo -e "$1"; }
 progress() { _say "${c_yellow}==>${c_none} $1"; }
 # https://stackoverflow.com/a/25515370
@@ -32,7 +34,7 @@ die() {
   # shellcheck disable=SC2086
   exit ${2:-112} # Use the 2nd arg or 112 as the default
 }
-try() { __NESTED_PROGRESS__="true" "$@" || die "${c_red}ERROR: could not run [$*]${c_none}" 112; }
+try() { __NESTED_PROGRESS__=$((__NESTED_PROGRESS__ + 1)) "$@" || die "${c_red}ERROR: could not run [$*]${c_none}" 112; }
 
 do_progress() { progress "$1"; try "${@:2}"; }
 
@@ -42,7 +44,7 @@ _quiet_try() {
   SECONDS=0
   _myout=$(mktemp -t 'bootstrap_stdout_XXXXXX')
   _myerr=$(mktemp -t 'bootstrap_stderr_XXXXXX')
-  __NESTED_PROGRESS__="true" "$@" > "${_myout}" 2> "${_myerr}" || {
+  __NESTED_PROGRESS__=$((__NESTED_PROGRESS__ + 1)) > "${_myout}" 2> "${_myerr}" || {
     echo "" # start on a new line
     cat "${_myout}"
     >&2 cat "${_myerr}"
@@ -60,7 +62,13 @@ _quiet_ok() {
 }
 do_progress_quiet() {
   # Keep it loud when running in Travis or Jenkins
-  if [[ "${TRACE}" || "${DEBUG}" || "${VERBOSE}" || "${__NESTED_PROGRESS__}" == "true" ]]; then
+  if [[ "${TRAVIS}" = "true" ]]; then
+    # shellcheck disable=SC2086
+    fold_name="script-progress.${__NESTED_PROGRESS__}"
+    echo "travis_fold:start:${fold_name}"
+    do_progress "$@"
+    echo "travis_fold:end:${fold_name}"
+  elif [[ "${TRACE}" || "${DEBUG}" || "${VERBOSE}" || "${__NESTED_PROGRESS__}" == "0" ]]; then
     do_progress "$@"
   else
     _quiet_progress "$1"
